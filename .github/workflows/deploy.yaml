@@ -1,0 +1,50 @@
+name: CI/CD for AKS Microservices
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
+  AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name $ACR_NAME
+
+      - name: Build and Push Docker Images
+        run: |
+          docker build -t $ACR_NAME.azurecr.io/user-service:$IMAGE_TAG ./user-service
+          docker build -t $ACR_NAME.azurecr.io/order-service:$IMAGE_TAG ./order-service
+          docker build -t $ACR_NAME.azurecr.io/product-service:$IMAGE_TAG ./product-service
+
+          docker push $ACR_NAME.azurecr.io/user-service:$IMAGE_TAG
+          docker push $ACR_NAME.azurecr.io/order-service:$IMAGE_TAG
+          docker push $ACR_NAME.azurecr.io/product-service:$IMAGE_TAG
+
+      - name: Get AKS Credentials
+        run: az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_CLUSTER_NAME
+
+      - name: Deploy to AKS
+        run: |
+          kubectl set image deployment/user-service user-service=$ACR_NAME.azurecr.io/user-service:$IMAGE_TAG -n default
+          kubectl set image deployment/order-service order-service=$ACR_NAME.azurecr.io/order-service:$IMAGE_TAG -n default
+          kubectl set image deployment/product-service product-service=$ACR_NAME.azurecr.io/product-service:$IMAGE_TAG -n default
+          kubectl rollout status deployment/user-service -n default
+          kubectl rollout status deployment/order-service -n default
+          kubectl rollout status deployment/product-service -n default
