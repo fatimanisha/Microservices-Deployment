@@ -34,21 +34,21 @@ jobs:
         with:
           context: ./user-service
           push: true
-          tags: ${{ secrets.ACR_NAME }}.azurecr.io/user-service:latest
+          tags: ${{ secrets.ACR_NAME }}.azurecr.io/user:latest
 
       - name: Build and push Product Service
         uses: docker/build-push-action@v4
         with:
           context: ./product-service
           push: true
-          tags: ${{ secrets.ACR_NAME }}.azurecr.io/product-service:latest
+          tags: ${{ secrets.ACR_NAME }}.azurecr.io/product:latest
 
       - name: Build and push Order Service
         uses: docker/build-push-action@v4
         with:
           context: ./order-service
           push: true
-          tags: ${{ secrets.ACR_NAME }}.azurecr.io/order-service:latest
+          tags: ${{ secrets.ACR_NAME }}.azurecr.io/order:latest
 
       # Deploy to AKS
       - name: Deploy to AKS
