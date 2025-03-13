@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+      annotations:
+        prometheus.io/scrape: "true"   
+        prometheus.io/port: "80"       
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: product-service
+        image: containerdemo112.azurecr.io/product-service:latest
+        ports:
+        - containerPort: 3002
+      imagePullSecrets:
+      - name: acr-auth
