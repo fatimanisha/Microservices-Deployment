@@ -8,7 +8,6 @@ app.use('/api', orderRoutes);
 
 const PORT = 3003;
 
-
 app.get('/', (req, res) => {
   res.send('Order Service is running!');
 });
@@ -20,3 +19,4 @@ app.get('/orders', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Order Service running on port ${PORT}`);
 });
+x
