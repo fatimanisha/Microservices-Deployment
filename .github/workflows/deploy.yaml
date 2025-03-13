@@ -3,7 +3,7 @@ name: CI/CD for AKS Microservices
 on:
   push:
     branches:
-      - main
+      - master
 
 env:
   ACR_NAME: ${{ secrets.ACR_NAME }}
