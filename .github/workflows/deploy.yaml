@@ -1,50 +1,62 @@
-name: CI/CD for AKS Microservices
+name: CI/CD Pipeline for Microservices
 
 on:
   push:
     branches:
-      - master
-
-env:
-  ACR_NAME: ${{ secrets.ACR_NAME }}
-  AKS_RESOURCE_GROUP: ${{ secrets.AKS_RESOURCE_GROUP }}
-  AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
-  IMAGE_TAG: ${{ github.sha }}
+      - main  # Trigger on push to the main branch
 
 jobs:
-  build-and-deploy:
+  build-push-deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code
+      # Checkout the code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
+      # Log in to Azure
       - name: Log in to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Log in to Azure Container Registry
-        run: az acr login --name $ACR_NAME
-
-      - name: Build and Push Docker Images
+      # Log in to Azure Container Registry (ACR)
+      - name: Log in to ACR
         run: |
-          docker build -t $ACR_NAME.azurecr.io/user-service:$IMAGE_TAG ./user-service
-          docker build -t $ACR_NAME.azurecr.io/order-service:$IMAGE_TAG ./order-service
-          docker build -t $ACR_NAME.azurecr.io/product-service:$IMAGE_TAG ./product-service
+          az acr login --name ${{ secrets.ACR_NAME }}
 
-          docker push $ACR_NAME.azurecr.io/user-service:$IMAGE_TAG
-          docker push $ACR_NAME.azurecr.io/order-service:$IMAGE_TAG
-          docker push $ACR_NAME.azurecr.io/product-service:$IMAGE_TAG
+      # Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: Get AKS Credentials
-        run: az aks get-credentials --resource-group $AKS_RESOURCE_GROUP --name $AKS_CLUSTER_NAME
+      # Build and push Docker images
+      - name: Build and push User Service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./user-service
+          push: true
+          tags: ${{ secrets.ACR_NAME }}.azurecr.io/user-service:latest
 
+      - name: Build and push Product Service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./product-service
+          push: true
+          tags: ${{ secrets.ACR_NAME }}.azurecr.io/product-service:latest
+
+      - name: Build and push Order Service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./order-service
+          push: true
+          tags: ${{ secrets.ACR_NAME }}.azurecr.io/order-service:latest
+
+      # Deploy to AKS
       - name: Deploy to AKS
         run: |
-          kubectl set image deployment/user-service user-service=$ACR_NAME.azurecr.io/user-service:$IMAGE_TAG -n default
-          kubectl set image deployment/order-service order-service=$ACR_NAME.azurecr.io/order-service:$IMAGE_TAG -n default
-          kubectl set image deployment/product-service product-service=$ACR_NAME.azurecr.io/product-service:$IMAGE_TAG -n default
-          kubectl rollout status deployment/user-service -n default
-          kubectl rollout status deployment/order-service -n default
-          kubectl rollout status deployment/product-service -n default
+          az aks get-credentials --resource-group ${{ secrets.RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }}
+          kubectl apply -f user-service/deployment.yaml
+          kubectl apply -f user-service/service.yaml
+          kubectl apply -f product-service/deployment.yaml
+          kubectl apply -f product-service/service.yaml
+          kubectl apply -f order-service/deployment.yaml
+          kubectl apply -f order-service/service.yaml
